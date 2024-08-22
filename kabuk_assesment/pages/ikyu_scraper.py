@@ -6,7 +6,6 @@ import datetime
 import requests
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 import concurrent.futures
 import streamlit as st
 from bs4 import BeautifulSoup

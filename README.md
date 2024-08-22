@@ -9,6 +9,20 @@ A Streamlit-based application to scrape hotel pricing data from Ikyu, Rakuten, a
 - Implements basic proxy rotation.
 - Generates a CSV report of the scraped data as a downloadable option from the streamlit website and we can view the dataframe.
 
+## Screenshots
+
+### Rakuten Travel
+
+![Rakuten Travel](kabuk_assesment/rakuten_travel/rakuten2.png)
+
+### Ikkyu
+
+![Ikkyu](kabuk_assesment/ikyu/ikyu1.png)
+
+### Jalan
+
+![Jalan](kabuk_assesment/jalan/jalan.png)
+
 ## Installation
 
 1. **Clone the repository:**

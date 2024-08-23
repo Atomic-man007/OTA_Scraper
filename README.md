@@ -91,6 +91,7 @@ kabuk_assesment/
 
 - Enhanced error handling for proxies.
 - Support for more OTAs.
+- Running scrapers on Docker and use microservice architecture etc.
 - Improved scalability and speed. which can a combination of multiple libraries like scrapy, puppeteer etc.
 
 ### Approach

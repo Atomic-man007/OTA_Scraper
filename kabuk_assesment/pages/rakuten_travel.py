@@ -1,17 +1,20 @@
-import streamlit as st
-import time
-import datetime
 import os
-import requests
-from bs4 import BeautifulSoup
-import pandas as pd
+import re
+import time
 import random
+import requests
+import datetime
+import pandas as pd
+import streamlit as st
 import concurrent.futures
+import plotly.express as px
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
+
 #import util
 from util import get_proxies, test_proxy, create_driver
 
@@ -45,6 +48,54 @@ def scrape_website(driver, last_page_number):
                     })
     driver.quit()
     return pd.DataFrame(data)
+
+def extract_prices(plan_prices):
+    base_price_match = re.search(r'(\d{1,3}(?:,\d{3})?円(?:～\d{1,3}(?:,\d{3})?円)?/人)', plan_prices)
+    tax_price_match = re.search(r'（消費税込(\d{1,3}(?:,\d{3})?円(?:～\d{1,3}(?:,\d{3})?円)?/人)）', plan_prices)
+    
+    base_price = base_price_match.group(1) if base_price_match else None
+    tax_price = tax_price_match.group(1) if tax_price_match else None
+    
+    return base_price, tax_price
+
+# Function to convert yen strings to numeric values
+def yen_to_float(yen_str):
+    if yen_str:
+        yen_str = yen_str.replace('円', '').replace(',', '').replace('/人', '')
+        return float(yen_str.split('～')[0])  # If it's a range, take the lower bound
+    return None
+
+def analyze_rakuten_data(df):
+    # Extract base and tax-inclusive prices
+    df[['Base Price', 'Tax Price']] = df['Plan Prices'].apply(lambda x: pd.Series(extract_prices(x)))
+
+    # Convert prices to numeric
+    df['Base Price'] = df['Base Price'].apply(yen_to_float)
+    df['Tax Price'] = df['Tax Price'].apply(yen_to_float)
+
+    # Basic Analytics
+    total_hotels = df['Hotel Name'].nunique()
+    avg_base_price = df['Base Price'].mean()
+    max_base_price = df['Base Price'].max()
+    min_base_price = df['Base Price'].min()
+    avg_tax_price = df['Tax Price'].mean()
+
+    # Display Analytics
+    st.write(f"Total number of unique hotels: {total_hotels}")
+    st.write(f"Average Base Price: {avg_base_price}円")
+    st.write(f"Maximum Base Price: {max_base_price}円")
+    st.write(f"Minimum Base Price: {min_base_price}円")
+    st.write(f"Average Tax-inclusive Price: {avg_tax_price}円")
+
+    # Plotly Graphs
+    fig_base_price_dist = px.bar(df, x='Hotel Name', y='Base Price', title="Base Price Distribution by Hotel",
+                                 labels={'Base Price': 'Base Price (¥)', 'Hotel Name': 'Hotel Name'}, height=400)
+    st.plotly_chart(fig_base_price_dist)
+
+    fig_price_comparison = px.scatter(df, x='Base Price', y='Tax Price', color='Hotel Name',
+                                      title="Base Price vs Tax-inclusive Price",
+                                      labels={'Base Price': 'Base Price (¥)', 'Tax Price': 'Tax Price (¥)'}, height=400)
+    st.plotly_chart(fig_price_comparison)
 
 # Function to save data to CSV
 def save_to_csv(df):
@@ -84,6 +135,10 @@ def main():
         file_path = save_to_csv(df)
         st.write(f"Scraping completed. Data saved to {file_path}.")
         st.dataframe(df)
+
+        # Analyze and display results
+        analyze_rakuten_data(df)
+        
 
 if __name__ == "__main__":
     main()

@@ -6,10 +6,12 @@ import datetime
 import requests
 import pandas as pd
 import numpy as np
-import concurrent.futures
+import seaborn as sns
 import streamlit as st
+import concurrent.futures
 from bs4 import BeautifulSoup
 from selenium import webdriver
+import matplotlib.pyplot as plt
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -97,6 +99,35 @@ def scrape_website(driver, last_page_number):
     df = pd.DataFrame(hotels)
 
     return df
+
+# Function to clean and split the Room Price Detail
+def clean_price_detail(detail_str):
+    # Remove single quotes and brackets, and then split into a list
+    detail_str = detail_str.strip("[]").replace("'", "")
+    return detail_str.split(", ")
+
+import re
+
+# Extract prices function
+def extract_prices(price_details):
+    price_dict = {
+        '2名税込': None,
+        '朝食付2名税込': None,
+        '夕食付2名税込': None
+    }
+    
+    for detail in price_details:
+        if '2名税込' in detail and price_dict['2名税込'] is None:
+            price_dict['2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+        
+        if '朝食付2名税込' in detail and price_dict['朝食付2名税込'] is None:
+            price_dict['朝食付2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+        
+        if '夕食付2名税込' in detail and price_dict['夕食付2名税込'] is None:
+            price_dict['夕食付2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+    
+    return price_dict['2名税込'], price_dict['朝食付2名税込'], price_dict['夕食付2名税込']
+
 
 # Function to save data to CSV
 def save_to_csv(df):

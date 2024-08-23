@@ -2,12 +2,12 @@ import os
 import time
 import json
 import datetime
-import pandas as pd
 import numpy as np
-import concurrent.futures
+import pandas as pd
 import streamlit as st
+import concurrent.futures
+import plotly.express as px
 from bs4 import BeautifulSoup
-
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import ElementClickInterceptedException,\
     TimeoutException, NoSuchElementException, StaleElementReferenceException
@@ -108,6 +108,39 @@ def save_to_csv(df):
     df.to_csv(file_path, index=False, encoding='utf-8')
     return file_path
 
+def analyze_hotel_data(df):
+    # Convert price columns to numeric, handling non-numeric characters
+    df['Price'] = df['Price'].str.replace('円', '').str.replace(',', '').str.extract('(\d+)').astype(float)
+    df['Per Person Price'] = df['Per Person Price'].str.replace('円', '').str.replace(',', '').str.extract('(\d+)').astype(float)
+    df['Total Price'] = df['Total Price'].str.replace('円', '').str.replace(',', '').str.extract('(\d+)').astype(float)
+
+    # Basic Analytics
+    total_hotels = df['Hotel Name'].nunique()
+    avg_price = df['Price'].mean()
+    max_price = df['Price'].max()
+    min_price = df['Price'].min()
+    avg_per_person_price = df['Per Person Price'].mean()
+    avg_total_price = df['Total Price'].mean()
+
+    # Display Analytics
+    st.write(f"**Total number of unique hotels:** {total_hotels}")
+    st.write(f"**Average Price:** {avg_price:.2f}円")
+    st.write(f"**Maximum Price:** {max_price:.2f}円")
+    st.write(f"**Minimum Price:** {min_price:.2f}円")
+    st.write(f"**Average Per Person Price:** {avg_per_person_price:.2f}円")
+    st.write(f"**Average Total Price:** {avg_total_price:.2f}円")
+
+    # Bar Chart: Distribution of Prices
+    fig_price_dist = px.bar(df, x='Hotel Name', y='Price', title="Price Distribution by Hotel Name",
+                            labels={'Price': 'Price (¥)', 'Hotel Name': 'Hotel Name'}, height=400)
+    st.plotly_chart(fig_price_dist)
+
+    # Scatter Plot: Per Person Price vs Total Price
+    fig_price_comparison = px.scatter(df, x='Per Person Price', y='Total Price', color='Hotel Name',
+                                      title="Per Person Price vs Total Price",
+                                      labels={'Per Person Price': 'Per Person Price (¥)', 'Total Price': 'Total Price (¥)'}, height=400)
+    st.plotly_chart(fig_price_comparison)
+
 # Main function
 def main():
     st.title("Jalan OTA Data Scraper")
@@ -136,6 +169,9 @@ def main():
         file_path = save_to_csv(df)
         st.write(f"Scraping completed. Data saved to {file_path}.")
         st.dataframe(df)
+        
+        # Analyze and display data using the function
+        analyze_hotel_data(df)
 
 if __name__ == "__main__":
     main()

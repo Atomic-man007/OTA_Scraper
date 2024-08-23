@@ -25,6 +25,8 @@ A Streamlit-based application to scrape hotel pricing data from Ikyu, Rakuten, a
 
 ### Metrics
 
+![Metrics-ikyu](kabuk_assesment/metrics2.png)
+
 ![Metrics](kabuk_assesment/metrics.png)
 
 ## Installation

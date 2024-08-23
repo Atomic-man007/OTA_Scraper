@@ -1,17 +1,17 @@
 import os
+import re
 import time
 import random
-import json
 import datetime
 import requests
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import streamlit as st
 import concurrent.futures
 from bs4 import BeautifulSoup
 from selenium import webdriver
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
@@ -106,8 +106,6 @@ def clean_price_detail(detail_str):
     detail_str = detail_str.strip("[]").replace("'", "")
     return detail_str.split(", ")
 
-import re
-
 # Extract prices function
 def extract_prices(price_details):
     price_dict = {
@@ -118,16 +116,67 @@ def extract_prices(price_details):
     
     for detail in price_details:
         if '2名税込' in detail and price_dict['2名税込'] is None:
-            price_dict['2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+            match = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail)
+            if match:
+                price_dict['2名税込'] = float(match.group(1).replace(',', ''))
         
         if '朝食付2名税込' in detail and price_dict['朝食付2名税込'] is None:
-            price_dict['朝食付2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+            match = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail)
+            if match:
+                price_dict['朝食付2名税込'] = float(match.group(1).replace(',', ''))
         
         if '夕食付2名税込' in detail and price_dict['夕食付2名税込'] is None:
-            price_dict['夕食付2名税込'] = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail).group(1)
+            match = re.search(r'(\d{1,3}(?:,\d{3})*)円', detail)
+            if match:
+                price_dict['夕食付2名税込'] = float(match.group(1).replace(',', ''))
     
-    return price_dict['2名税込'], price_dict['朝食付2名税込'], price_dict['夕食付2名税込']
+    return [price_dict['2名税込'], price_dict['朝食付2名税込'], price_dict['夕食付2名税込']]
 
+# Function to perform analytics on the data and display in Streamlit
+def perform_analytics(df):
+    # Extract numerical prices from 'Room Price Detail'
+    df['Extracted Prices'] = df['Room Price Detail'].apply(extract_prices)
+    
+    # Calculate average price per room type
+    df['Average Price'] = df['Extracted Prices'].apply(lambda x: np.mean([p for p in x if p is not None]))
+    avg_price_per_room = df.groupby('Room Type')['Average Price'].mean().sort_values(ascending=False)
+    
+    # Display Average Price per Room Type
+    st.subheader("Average Price per Room Type")
+    for room_type, avg_price in avg_price_per_room.items():
+        st.metric(label=f"Room Type: {room_type}", value=f"{avg_price:,.0f} 円")
+    
+    # Distribution of Prices
+    all_prices = [price for sublist in df['Extracted Prices'].tolist() for price in sublist if price is not None]
+    fig = px.histogram(all_prices, nbins=30, title="Price Distribution", labels={'value': 'Price (円)'})
+    fig.update_layout(xaxis_title='Price (円)', yaxis_title='Count')
+    st.subheader("Price Distribution")
+    st.plotly_chart(fig)
+    
+    # Top 5 Most Expensive Hotels
+    df['Max Price'] = df['Extracted Prices'].apply(lambda x: max([p for p in x if p is not None], default=0))
+    top_expensive_hotels = df[['Hotel Name', 'Max Price']].sort_values(by='Max Price', ascending=False).head(5)
+    
+    st.subheader("Top 5 Most Expensive Hotels")
+    for _, row in top_expensive_hotels.iterrows():
+        st.metric(label=row['Hotel Name'], value=f"{row['Max Price']:,.0f} 円")
+    
+    # Price Range Analysis
+    df['Price Range'] = df['Extracted Prices'].apply(lambda x: max([p for p in x if p is not None], default=0) - min([p for p in x if p is not None], default=0))
+    price_range_analysis = df.groupby('Room Type')['Price Range'].mean().sort_values(ascending=False)
+    
+    st.subheader("Price Range Analysis")
+    fig_range = go.Figure()
+    fig_range.add_trace(go.Bar(
+        x=price_range_analysis.index,
+        y=price_range_analysis.values,
+        name="Average Price Range by Room Type"
+    ))
+    fig_range.update_layout(title="Average Price Range by Room Type",
+                            xaxis_title="Room Type",
+                            yaxis_title="Average Price Range (円)",
+                            xaxis_tickangle=-45)
+    st.plotly_chart(fig_range)
 
 # Function to save data to CSV
 def save_to_csv(df):
@@ -166,7 +215,9 @@ def main():
         file_path = save_to_csv(df)
         st.write(f"Scraping completed. Data saved to {file_path}.")
         st.dataframe(df)
-
+        
+        # Analyze and display data using the function
+        perform_analytics(df)
 
 if __name__ == "__main__":
     main()
